@@ -1,0 +1,574 @@
+/** @jsxImportSource https://esm.sh/react@18.2.0 */
+import React, { useState, useEffect } from "https://esm.sh/react@18.2.0";
+import { createRoot } from "https://esm.sh/react-dom@18.2.0/client";
+
+// Product data structure
+const initialProducts = [
+  {
+    id: 1,
+    name: "MacBook Pro 14\"",
+    category: "Computers",
+    price: 1999.99,
+    description: "Powerful laptop with M2 Pro chip, 16GB RAM, 512GB SSD",
+    image: "https://maxm-imggenurl.web.val.run/macbook-pro-silver"
+  },
+  {
+    id: 2,
+    name: "iPhone 15 Pro",
+    category: "Phones",
+    price: 1199.99,
+    description: "Advanced smartphone with titanium design and A17 Pro chip",
+    image: "https://maxm-imggenurl.web.val.run/iphone-15-pro-silver"
+  },
+  {
+    id: 3,
+    name: "Samsung 27\" 4K Monitor",
+    category: "Accessories",
+    price: 399.99,
+    description: "Ultra-sharp 4K display with HDR and wide color gamut",
+    image: "https://maxm-imggenurl.web.val.run/samsung-4k-monitor"
+  },
+  {
+    id: 4,
+    name: "Dell XPS Desktop",
+    category: "Computers",
+    price: 1299.99,
+    description: "High-performance desktop with Intel i7, 16GB RAM, 1TB SSD",
+    image: "https://maxm-imggenurl.web.val.run/dell-xps-desktop"
+  },
+  {
+    id: 5,
+    name: "Google Pixel 8",
+    category: "Phones",
+    price: 699.99,
+    description: "Advanced Android smartphone with AI features",
+    image: "https://maxm-imggenurl.web.val.run/google-pixel-8"
+  }
+];
+
+function ProductCard({ product, onAddToCart }) {
+  return (
+    <div className="product-card">
+      <img src={product.image} alt={product.name} className="product-image" />
+      <div className="product-details">
+        <h3>{product.name}</h3>
+        <p>{product.description}</p>
+        <div className="product-footer">
+          <span className="product-price">${product.price.toFixed(2)}</span>
+          <button 
+            onClick={() => onAddToCart(product)} 
+            className="add-to-cart-btn"
+          >
+            Add to Cart 🛒
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProductCatalog({ products, onAddToCart, selectedCategory }) {
+  const filteredProducts = selectedCategory 
+    ? products.filter(p => p.category === selectedCategory)
+    : products;
+
+  return (
+    <div className="product-catalog">
+      {filteredProducts.map(product => (
+        <ProductCard 
+          key={product.id} 
+          product={product} 
+          onAddToCart={onAddToCart} 
+        />
+      ))}
+    </div>
+  );
+}
+
+function CartItem({ item, onRemove, onUpdateQuantity }) {
+  return (
+    <div className="cart-item">
+      <img src={item.image} alt={item.name} className="cart-item-image" />
+      <div className="cart-item-details">
+        <h4>{item.name}</h4>
+        <div className="cart-item-controls">
+          <span>${item.price.toFixed(2)}</span>
+          <div className="quantity-control">
+            <button onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}>-</button>
+            <span>{item.quantity}</span>
+            <button onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}>+</button>
+          </div>
+          <button onClick={() => onRemove(item.id)} className="remove-btn">🗑️</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ShoppingCart({ cart, onRemove, onUpdateQuantity, onCheckout }) {
+  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  return (
+    <div className="shopping-cart">
+      <h2>Your Cart 🛒</h2>
+      {cart.length === 0 ? (
+        <p>Your cart is empty</p>
+      ) : (
+        <>
+          {cart.map(item => (
+            <CartItem 
+              key={item.id} 
+              item={item} 
+              onRemove={onRemove}
+              onUpdateQuantity={onUpdateQuantity}
+            />
+          ))}
+          <div className="cart-summary">
+            <strong>Total: ${total.toFixed(2)}</strong>
+            <button onClick={onCheckout} className="checkout-btn">
+              Proceed to Checkout
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function App() {
+  const [products, setProducts] = useState([]);
+  const [cart, setCart] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    const response = await fetch("/products");
+    if (response.ok) {
+      const data = await response.json();
+      setProducts(data);
+    } else {
+      setProducts(initialProducts);
+    }
+  };
+
+  const addToCart = (product) => {
+    setCart(prevCart => {
+      const existingItem = prevCart.find(item => item.id === product.id);
+      if (existingItem) {
+        return prevCart.map(item => 
+          item.id === product.id 
+            ? { ...item, quantity: item.quantity + 1 } 
+            : item
+        );
+      }
+      return [...prevCart, { ...product, quantity: 1 }];
+    });
+  };
+
+  const removeFromCart = (productId) => {
+    setCart(prevCart => prevCart.filter(item => item.id !== productId));
+  };
+
+  const updateQuantity = (productId, newQuantity) => {
+    if (newQuantity < 1) {
+      removeFromCart(productId);
+    } else {
+      setCart(prevCart => 
+        prevCart.map(item => 
+          item.id === productId 
+            ? { ...item, quantity: newQuantity } 
+            : item
+        )
+      );
+    }
+  };
+
+  const checkout = async () => {
+    try {
+      const response = await fetch("/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cart)
+      });
+      
+      if (response.ok) {
+        alert("Order placed successfully!");
+        setCart([]);
+      } else {
+        alert("Checkout failed. Please try again.");
+      }
+    } catch (error) {
+      console.error("Checkout error:", error);
+      alert("An error occurred during checkout.");
+    }
+  };
+
+  const categories = [...new Set(products.map(p => p.category))];
+
+  return (
+    <div className="tech-shop">
+      <header>
+        <h1>🖥️ TechVerse Store</h1>
+        <div className="category-filter">
+          <button 
+            onClick={() => setSelectedCategory(null)} 
+            className={selectedCategory === null ? 'active' : ''}
+          >
+            All Products
+          </button>
+          {categories.map(category => (
+            <button 
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              className={selectedCategory === category ? 'active' : ''}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+      </header>
+      
+      <div className="shop-container">
+        <div className="products-panel">
+          <ProductCatalog 
+            products={products} 
+            onAddToCart={addToCart}
+            selectedCategory={selectedCategory}
+          />
+        </div>
+        
+        <div className="cart-panel">
+          <ShoppingCart 
+            cart={cart}
+            onRemove={removeFromCart}
+            onUpdateQuantity={updateQuantity}
+            onCheckout={checkout}
+          />
+        </div>
+      </div>
+
+      <a 
+        href={import.meta.url.replace("esm.town", "val.town")} 
+        target="_top" 
+        className="source-link"
+      >
+        View Source
+      </a>
+    </div>
+  );
+}
+
+function client() {
+  createRoot(document.getElementById("root")).render(<App />);
+}
+if (typeof document !== "undefined") { client(); }
+
+export default async function server(request: Request): Promise<Response> {
+  const { sqlite } = await import("https://esm.town/v/stevekrouse/sqlite");
+  const KEY = new URL(import.meta.url).pathname.split("/").at(-1);
+  const SCHEMA_VERSION = 1;
+
+  try {
+    // Create products table
+    await sqlite.execute(`
+      CREATE TABLE IF NOT EXISTS ${KEY}_products_${SCHEMA_VERSION} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        price REAL NOT NULL,
+        description TEXT NOT NULL,
+        image TEXT NOT NULL
+      )
+    `);
+
+    // Create orders table
+    await sqlite.execute(`
+      CREATE TABLE IF NOT EXISTS ${KEY}_orders_${SCHEMA_VERSION} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        total_amount REAL NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create order items table
+    await sqlite.execute(`
+      CREATE TABLE IF NOT EXISTS ${KEY}_order_items_${SCHEMA_VERSION} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id INTEGER NOT NULL,
+        product_id INTEGER NOT NULL,
+        quantity INTEGER NOT NULL,
+        price REAL NOT NULL,
+        FOREIGN KEY(order_id) REFERENCES ${KEY}_orders_${SCHEMA_VERSION}(id),
+        FOREIGN KEY(product_id) REFERENCES ${KEY}_products_${SCHEMA_VERSION}(id)
+      )
+    `);
+
+    // Check if products table is empty, then seed
+    const existingProducts = await sqlite.execute(
+      `SELECT COUNT(*) as count FROM ${KEY}_products_${SCHEMA_VERSION}`
+    );
+
+    if (existingProducts.rows[0].count === 0) {
+      for (const product of initialProducts) {
+        await sqlite.execute(
+          `INSERT INTO ${KEY}_products_${SCHEMA_VERSION} 
+           (name, category, price, description, image) 
+           VALUES (?, ?, ?, ?, ?)`,
+          [
+            product.name, 
+            product.category, 
+            product.price, 
+            product.description, 
+            product.image
+          ]
+        );
+      }
+    }
+  } catch (error) {
+    console.error("Database initialization error:", error);
+    return new Response(JSON.stringify({ error: "Database initialization failed" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  const url = new URL(request.url);
+
+  try {
+    if (request.method === "GET" && url.pathname === "/products") {
+      const result = await sqlite.execute(
+        `SELECT * FROM ${KEY}_products_${SCHEMA_VERSION}`
+      );
+      return new Response(JSON.stringify(result.rows), { 
+        headers: { "Content-Type": "application/json" } 
+      });
+    }
+
+    if (request.method === "POST" && url.pathname === "/checkout") {
+      const cartItems = await request.json();
+      const totalAmount = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+      // Insert order
+      const orderResult = await sqlite.execute(
+        `INSERT INTO ${KEY}_orders_${SCHEMA_VERSION} (total_amount) VALUES (?)`,
+        [totalAmount]
+      );
+      const orderId = orderResult.lastInsertRowid;
+
+      // Insert order items
+      for (const item of cartItems) {
+        await sqlite.execute(
+          `INSERT INTO ${KEY}_order_items_${SCHEMA_VERSION} 
+           (order_id, product_id, quantity, price) 
+           VALUES (?, ?, ?, ?)`,
+          [orderId, item.id, item.quantity, item.price]
+        );
+      }
+
+      return new Response(JSON.stringify({ success: true, orderId }), { 
+        headers: { "Content-Type": "application/json" } 
+      });
+    }
+  } catch (error) {
+    console.error("Route handling error:", error);
+    return new Response(JSON.stringify({ error: "Database query failed" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  return new Response(`
+    <html>
+      <head>
+        <title>TechVerse Store</title>
+        <style>${css}</style>
+      </head>
+      <body>
+        <div id="root"></div>
+        <script src="https://esm.town/v/std/catch"></script>
+        <script type="module" src="${import.meta.url}"></script>
+      </body>
+    </html>
+  `, {
+    headers: { "Content-Type": "text/html" }
+  });
+}
+
+const css = `
+body {
+  font-family: 'Arial', sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f4f4f4;
+}
+
+.tech-shop {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.category-filter {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.category-filter button {
+  background-color: #f0f0f0;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.category-filter button.active {
+  background-color: #007bff;
+  color: white;
+}
+
+.shop-container {
+  display: flex;
+  gap: 20px;
+}
+
+.products-panel {
+  flex: 3;
+}
+
+.cart-panel {
+  flex: 1;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.product-catalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.product-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  overflow: hidden;
+  transition: transform 0.3s;
+}
+
+.product-card:hover {
+  transform: scale(1.05);
+}
+
+.product-image {
+  width: 100%;
+  height: 250px;
+  object-fit: cover;
+}
+
+.product-details {
+  padding: 15px;
+}
+
+.product-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.product-price {
+  font-weight: bold;
+  font-size: 1.2em;
+}
+
+.add-to-cart-btn {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.cart-item {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #eee;
+  padding: 10px 0;
+}
+
+.cart-item-image {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  margin-right: 15px;
+}
+
+.cart-item-details {
+  flex-grow: 1;
+}
+
+.cart-item-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.quantity-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.quantity-control button {
+  width: 30px;
+  height: 30px;
+  background-color: #f0f0f0;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.remove-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.cart-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+}
+
+.checkout-btn {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.source-link {
+  display: block;
+  text-align: center;
+  margin-top: 20px;
+  color: #666;
+  text-decoration: none;
+}
+`;
